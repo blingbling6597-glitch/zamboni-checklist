@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #f4f6f9; --card: #fff; --ink: #1f2933; --muted: #6b7785; --line: #dde3ea;
+    --brand: #1f5fa8; --ok: #1e8e3e; --remind: #c77700; --ng: #c5221f; --key: #fbe3d3;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+         background: var(--bg); color: var(--ink); font-size: 16px; line-height: 1.5; }
+  header { background: var(--brand); color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 17px; margin: 0; }
+  header .sub { font-size: 13px; opacity: .9; }
+  main { padding: 12px; max-width: 720px; margin: 0 auto; padding-bottom: 96px; }
+  .card { background: var(--card); border-radius: 10px; padding: 14px; margin-bottom: 12px; border: 1px solid var(--line); }
+  label.f { display: block; font-weight: 600; margin: 10px 0 6px; }
+  select, input[type=date], textarea { width: 100%; font-size: 16px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  textarea { min-height: 64px; resize: vertical; }
+  .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .roles button, .btn { font-size: 16px; padding: 12px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  .roles button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .btn.primary { background: var(--brand); color: #fff; border-color: var(--brand); width: 100%; font-weight: 600; }
+  .btn.secondary { width: 100%; margin-top: 8px; }
+  .btn:disabled { opacity: .5; }
+  .legend { font-size: 14px; color: var(--muted); }
+  .legend div { margin: 2px 0; }
+  h2.phase { font-size: 15px; color: var(--brand); margin: 18px 4px 8px; }
+  .item { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+  .item.key { border-left: 6px solid #f0a36b; }
+  .item.missing { border-color: var(--ng); box-shadow: 0 0 0 2px rgba(197,34,31,.25); }
+  .item .id { font-size: 12px; color: var(--muted); }
+  .item .star { color: #d9480f; font-weight: 700; }
+  .choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+  .choices button { font-size: 15px; padding: 10px 4px; border-radius: 8px; border: 1px solid var(--line); background: #fafbfc; }
+  .choices button .t { display: block; font-size: 12px; color: var(--muted); }
+  .choices button.on[data-v="✅"] { background: #e6f4ea; border-color: var(--ok); }
+  .choices button.on[data-v="📐"] { background: #fff4e0; border-color: var(--remind); }
+  .choices button.on[data-v="❌"] { background: #fce8e6; border-color: var(--ng); }
+  .reason { margin-top: 8px; }
+  .reason textarea { border-color: var(--ng); }
+  .was { font-size: 13px; color: var(--remind); margin-top: 6px; }
+  .note { background: #fff8e1; border: 1px solid #f3d27a; border-radius: 10px; padding: 12px; font-size: 14px; }
+  .bar { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid var(--line); padding: 10px 12px; z-index: 5; }
+  .bar .inner { max-width: 720px; margin: 0 auto; display: flex; gap: 10px; align-items: center; }
+  .bar .prog { font-size: 14px; color: var(--muted); white-space: nowrap; }
+  .session { cursor: pointer; }
+  .chip { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 99px; margin-left: 6px; }
+  .chip.待填寫 { background: #eceff3; color: #49545f; }
+  .chip.待覆核 { background: #fff4e0; color: #8a5300; }
+  .chip.已覆核 { background: #e6f4ea; color: #146c2e; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .rolehead { display: flex; justify-content: space-between; align-items: baseline; margin: 18px 4px 6px; }
+  .rolehead h2 { font-size: 16px; margin: 0; }
+  .err { color: var(--ng); white-space: pre-line; }
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
+  .modal .box { background: #fff; border-radius: 12px; padding: 18px; max-width: 420px; width: 100%; white-space: pre-line; }
+  .modal .row { display: flex; gap: 8px; margin-top: 16px; }
+  .modal .row .btn { flex: 1; }
+  .center { text-align: center; padding: 40px 12px; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; }
+  .check input { width: 22px; height: 22px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<header><h1 id="title">洗冰檢點</h1><div class="sub" id="subtitle"></div></header>
+<main id="app"><div class="center muted">載入中…</div></main>
+<div class="bar" id="bar" style="display:none"><div class="inner" id="barInner"></div></div>
+
+<script>
+var B = null;                 // apiBootstrap 回傳的設定
+var S = { role: '', person: '', date: '', time: '' };
+var answers = {};             // { 項目編號: { result, reason } }
+var review = null;            // 覆核中的場次資料
+
+var LABEL = { '✅': '正確執行', '📐': '提醒後執行', '❌': '未執行' };
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }
+function unstore(k) { try { localStorage.removeItem(k); } catch (e) {} }
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function roleName(key) { var r = B.roles.filter(function (x) { return x.key === key; })[0]; return r ? r.name : key; }
+function sessionId() { return S.date + ' ' + S.time; }
+function draftKey() { return 'draft:' + sessionId() + ':' + S.role; }
+
+function call(fn, arg) {
+  return new Promise(function (resolve, reject) {
+    google.script.run.withSuccessHandler(resolve).withFailureHandler(function (e) { reject(e); })[fn](arg);
+  });
+}
+
+function modal(message, okText, cancelText) {
+  return new Promise(function (resolve) {
+    var m = document.createElement('div');
+    m.className = 'modal';
+    m.innerHTML = '<div class="box"><div>' + esc(message) + '</div><div class="row">' +
+      (cancelText ? '<button class="btn" data-a="0">' + esc(cancelText) + '</button>' : '') +
+      '<button class="btn primary" data-a="1">' + esc(okText || '確定') + '</button></div></div>';
+    m.addEventListener('click', function (e) {
+      var a = e.target.getAttribute('data-a');
+      if (a === null) return;
+      document.body.removeChild(m);
+      resolve(a === '1');
+    });
+    document.body.appendChild(m);
+  });
+}
+
+function setHeader(title, sub) { $('title').textContent = title; $('subtitle').textContent = sub || ''; }
+function setBar(html) { $('bar').style.display = html ? 'block' : 'none'; $('barInner').innerHTML = html || ''; }
+
+// ───────── 首頁 ─────────
+
+function renderHome() {
+  $('app').onclick = null; $('app').oninput = null;
+  setHeader('洗冰檢點　' + B.version + '版', '請選擇場次、角色與姓名');
+  setBar('');
+  var last = store('me') || {};
+  S.role = S.role || last.role || '';
+  S.person = S.person || last.person || '';
+  S.date = S.date || B.today;
+  S.time = S.time || pad(B.defaultHour) + ':00';
+
+  var hours = '';
+  for (var h = 6; h <= 23; h++) {
+    var t = pad(h) + ':00';
+    hours += '<option' + (t === S.time ? ' selected' : '') + '>' + t + '</option>';
+  }
+  var names = '<option value="">（請選擇）</option>' + B.roster.map(function (n) {
+    return '<option' + (n === S.person ? ' selected' : '') + '>' + esc(n) + '</option>';
+  }).join('');
+
+  $('app').innerHTML =
+    '<div class="card">' +
+      '<label class="f">洗冰日期</label><input type="date" id="date" value="' + esc(S.date) + '">' +
+      '<label class="f">洗冰時間（整點）</label><select id="time">' + hours + '</select>' +
+      '<label class="f">我的角色</label><div class="roles" id="roles">' +
+        B.roles.map(function (r) { return '<button data-r="' + r.key + '" class="' + (r.key === S.role ? 'on' : '') + '">' + esc(r.name) + '</button>'; }).join('') +
+      '</div>' +
+      '<label class="f">我的姓名</label><select id="person">' + names + '</select>' +
+      (B.roster.length ? '' : '<p class="err">人員名單是空的，請管理者到試算表「人員名單」分頁填入姓名。</p>') +
+    '</div>' +
+    '<button class="btn primary" id="start">開始檢點</button>' +
+    '<button class="btn secondary" id="review" style="display:' + (S.role === 'commander' ? 'block' : 'none') + '">指揮官覆核簽認</button>' +
+    '<div class="card note" style="margin-top:14px">' + esc(B.safetyNote) + '</div>';
+
+  $('roles').onclick = function (e) {
+    var k = e.target.getAttribute('data-r');
+    if (!k) return;
+    S.role = k;
+    Array.prototype.forEach.call($('roles').children, function (b) { b.className = b.getAttribute('data-r') === k ? 'on' : ''; });
+    $('review').style.display = k === 'commander' ? 'block' : 'none';
+  };
+  $('start').onclick = function () { if (readHome()) startCheck(); };
+  $('review').onclick = function () { if (readHome()) loadSessions(); };
+}
+
+function readHome() {
+  S.date = $('date').value;
+  S.time = $('time').value;
+  S.person = $('person').value;
+  if (!S.date) { modal('請選擇洗冰日期'); return false; }
+  if (!S.role) { modal('請選擇角色'); return false; }
+  if (!S.person) { modal('請選擇姓名'); return false; }
+  store('me', { role: S.role, person: S.person });
+  return true;
+}
+
+// ───────── 角色自評 ─────────
+
+function myItems() { return B.items.filter(function (it) { return it.role === S.role; }); }
+
+function startCheck() {
+  answers = store(draftKey()) || {};
+  renderCheck();
+}
+
+function itemHtml(it, a, extra) {
+  a = a || {};
+  var btns = ['✅', '📐', '❌'].map(function (v) {
+    return '<button data-v="' + v + '" class="' + (a.result === v ? 'on' : '') + '">' + v + '<span class="t">' + LABEL[v] + '</span></button>';
+  }).join('');
+  return '<div class="item' + (it.key ? ' key' : '') + '" id="it-' + it.id + '" data-id="' + it.id + '">' +
+    '<div class="id">' + it.id + (it.key ? ' <span class="star">★ 重點</span>' : '') + '</div>' +
+    '<div>' + esc(it.text) + '</div>' +
+    '<div class="choices">' + btns + '</div>' +
+    (extra || '') +
+    '<div class="reason" style="display:' + (a.result === '❌' ? 'block' : 'none') + '">' +
+      '<textarea placeholder="勾 ❌ 必填：請寫原因">' + esc(a.reason || '') + '</textarea></div>' +
+  '</div>';
+}
+
+/** 綁定一張題目卡的三個按鈕與原因欄；onChange(id, answer) */
+function wireItems(container, getAnswer, onChange) {
+  // 用 onclick／oninput 屬性（不是 addEventListener），換畫面時舊的處理器會被取代
+  container.onclick = function (e) {
+    var btn = e.target.closest('.choices button');
+    if (!btn) return;
+    var card = btn.closest('.item');
+    var id = card.getAttribute('data-id');
+    var a = getAnswer(id);
+    a.result = btn.getAttribute('data-v');
+    Array.prototype.forEach.call(card.querySelectorAll('.choices button'), function (b) { b.classList.toggle('on', b === btn); });
+    card.querySelector('.reason').style.display = a.result === '❌' ? 'block' : 'none';
+    if (a.result === '❌') card.querySelector('textarea').focus();
+    card.classList.remove('missing');
+    onChange(id, a, card);
+  };
+  container.oninput = function (e) {
+    if (e.target.tagName !== 'TEXTAREA' || !e.target.closest('.reason')) return;
+    var card = e.target.closest('.item');
+    var id = card.getAttribute('data-id');
+    var a = getAnswer(id);
+    a.reason = e.target.value;
+    card.classList.remove('missing');
+    onChange(id, a, card);
+  };
+}
+
+function renderCheck() {
+  setHeader(roleName(S.role) + '　' + S.person, '場次 ' + sessionId());
+  var items = myItems();
+  var html = '<div class="card legend"><div>✅ 單項有正確執行</div><div>📐 單項不熟，但現場提醒後有執行</div><div>❌ 單項沒執行，或溝通提醒後仍無正確執行（<b>必填原因</b>）</div><div>每一項都要勾，不可空白。</div></div>';
+  B.phases.forEach(function (p) {
+    var list = items.filter(function (it) { return it.phase === p.key; });
+    if (!list.length) return;
+    html += '<h2 class="phase">▍' + esc(p.name) + '</h2>' + list.map(function (it) { return itemHtml(it, answers[it.id]); }).join('');
+  });
+  html += '<div class="card note">' + esc(B.safetyNote) + '</div>';
+  html += '<button class="btn secondary" id="back">← 回上一頁</button>';
+  $('app').innerHTML = html;
+  window.scrollTo(0, 0);
+
+  wireItems($('app'), function (id) { return answers[id] = answers[id] || {}; }, function () {
+    store(draftKey(), answers);
+    updateProgress();
+  });
+  $('back').onclick = renderHome;
+  setBar('<span class="prog" id="prog"></span><button class="btn primary" id="submit">送出</button>');
+  $('submit').onclick = function () { submitCheck(false); };
+  updateProgress();
+}
+
+function updateProgress() {
+  var items = myItems();
+  var done = items.filter(function (it) { return answers[it.id] && answers[it.id].result; }).length;
+  $('prog').textContent = '已勾 ' + done + ' / ' + items.length;
+}
+
+/** 回傳第一個不完整的題目卡，並標紅所有不完整的 */
+function markMissing(items, getAnswer) {
+  var first = null;
+  items.forEach(function (it) {
+    var a = getAnswer(it.id) || {};
+    var bad = !a.result || (a.result === '❌' && !String(a.reason || '').trim());
+    var card = $('it-' + it.id);
+    if (card) card.classList.toggle('missing', bad);
+    if (bad && !first) first = card;
+  });
+  return first;
+}
+
+function submitCheck(overwrite) {
+  var first = markMissing(myItems(), function (id) { return answers[id]; });
+  if (first) {
+    first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    modal('還有項目沒勾，或勾 ❌ 沒寫原因（已用紅框標示）。');
+    return;
+  }
+  $('submit').disabled = true;
+  call('apiSubmitSelf', { date: S.date, time: S.time, role: S.role, person: S.person, answers: answers, overwrite: overwrite })
+    .then(function (res) {
+      if (res.needConfirm) {
+        return modal(res.message, '覆蓋', '取消').then(function (ok) {
+          $('submit').disabled = false;
+          if (ok) submitCheck(true);
+        });
+      }
+      unstore(draftKey());
+      renderDone('已送出', roleName(S.role) + ' ' + S.person + '\n場次 ' + res.sessionId);
+    })
+    .catch(function (e) { $('submit').disabled = false; modal('送出失敗：\n' + (e.message || e)); });
+}
+
+function renderDone(title, msg) {
+  setHeader('洗冰檢點', '');
+  setBar('');
+  $('app').innerHTML = '<div class="card center"><div style="font-size:42px">✅</div><h2>' + esc(title) + '</h2><p class="muted" style="white-space:pre-line">' + esc(msg) + '</p></div>' +
+    '<button class="btn primary" id="home">回首頁</button>' +
+    (S.role === 'commander' ? '<button class="btn secondary" id="rv">前往覆核簽認</button>' : '');
+  $('home').onclick = renderHome;
+  if ($('rv')) $('rv').onclick = loadSessions;
+}
+
+// ───────── 指揮官覆核 ─────────
+
+function loadSessions() {
+  setHeader('覆核簽認', '指揮官：' + S.person);
+  setBar('');
+  $('app').innerHTML = '<div class="center muted">載入場次…</div>';
+  call('apiListSessions').then(function (list) {
+    var html = '<p class="muted">近 7 天的場次（新的在上）。點選場次進入覆核。</p>';
+    if (!list.length) html += '<div class="card muted">近 7 天還沒有任何填報。</div>';
+    html += list.map(function (s) {
+      return '<div class="card session" data-id="' + esc(s.id) + '"><b>' + esc(s.id) + '</b><span class="chip ' + esc(s.status) + '">' + esc(s.status) + '</span>' +
+        '<div class="muted">已填 ' + s.filled + ' / 4 角色　📐 ' + s.remind + '　❌ ' + s.ng + (s.reviewer ? '　覆核：' + esc(s.reviewer) : '') + '</div>' +
+        '<div class="muted">' + s.people.map(function (p) { return esc(p.role) + '：' + (p.person ? esc(p.person) : '<span class="err">未填</span>'); }).join('　') + '</div></div>';
+    }).join('');
+    html += '<button class="btn secondary" id="back">← 回首頁</button>';
+    $('app').innerHTML = html;
+    $('back').onclick = renderHome;
+    Array.prototype.forEach.call(document.querySelectorAll('.session'), function (el) {
+      el.onclick = function () { openReview(el.getAttribute('data-id')); };
+    });
+  }).catch(function (e) { modal('載入失敗：\n' + (e.message || e)); renderHome(); });
+}
+
+function openReview(sid) {
+  $('app').innerHTML = '<div class="center muted">載入中…</div>';
+  call('apiGetSession', sid).then(function (data) {
+    review = { id: sid, data: data, answers: {} };
+    data.roles.forEach(function (r) {
+      r.items.forEach(function (it) {
+        review.answers[it.id] = {
+          result: it.review || it.self,
+          reason: it.review ? it.reviewReason : it.selfReason
+        };
+      });
+    });
+    renderReview();
+  }).catch(function (e) { modal('載入失敗：\n' + (e.message || e)); loadSessions(); });
+}
+
+function selfOf(id) {
+  var found = null;
+  review.data.roles.forEach(function (r) { r.items.forEach(function (it) { if (it.id === id) found = it; }); });
+  return found;
+}
+
+function wasHtml(it, a) {
+  return '<div class="was" style="display:' + (a.result !== it.self ? 'block' : 'none') + '">已修正（自評：' + it.self + ' ' + LABEL[it.self] + '）</div>';
+}
+
+function renderReview() {
+  var d = review.data;
+  setHeader('覆核 ' + d.id, '指揮官：' + S.person);
+  var html = '';
+  if (d.reviewed) html += '<div class="card note">此場次已由「' + esc(d.reviewer) + '」覆核簽認。可以修改後重新簽認。</div>';
+  html += '<div class="card legend">預設帶入各角色的自評結果，只需修改不正確的項目。勾 ❌ 必須有原因。</div>';
+  d.roles.forEach(function (r) {
+    html += '<div class="rolehead"><h2>' + esc(r.name) + '</h2><span class="muted">' +
+      (r.person ? esc(r.person) + '　' + esc(r.submittedAt) + ' 送出' : '<span class="err">尚未填寫</span>') + '</span></div>';
+    var phase = '';
+    r.items.forEach(function (it) {
+      if (it.phase !== phase) { phase = it.phase; html += '<h2 class="phase">▍' + esc(phase) + '</h2>'; }
+      html += itemHtml(it, review.answers[it.id], wasHtml(it, review.answers[it.id]));
+    });
+  });
+  html += '<div class="card"><label class="f">覆核意見（選填）</label><textarea id="comment" placeholder="例如：本場次安全員2 對南北區淨空指差不熟，已現場教導">' + esc(d.comment || '') + '</textarea>' +
+    '<label class="check"><input type="checkbox" id="agree"><span>我（' + esc(S.person) + '）已確認本場次各角色檢點結果，簽認無誤。</span></label></div>';
+  html += '<button class="btn secondary" id="back">← 回場次清單</button>';
+  $('app').innerHTML = html;
+  window.scrollTo(0, 0);
+
+  wireItems($('app'), function (id) { return review.answers[id]; }, function (id, a, card) {
+    card.querySelector('.was').style.display = a.result !== selfOf(id).self ? 'block' : 'none';
+  });
+  $('back').onclick = loadSessions;
+  setBar('<button class="btn primary" id="sign">覆核簽認</button>');
+  $('sign').onclick = function () { submitReview(false); };
+}
+
+function submitReview(confirmMissing) {
+  var all = [];
+  review.data.roles.forEach(function (r) { all = all.concat(r.items); });
+  var first = markMissing(all, function (id) { return review.answers[id]; });
+  if (first) {
+    first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    modal('有勾 ❌ 的項目沒有原因（已用紅框標示）。');
+    return;
+  }
+  if (!$('agree').checked) { modal('請勾選「已確認本場次各角色檢點結果」再簽認。'); return; }
+  $('sign').disabled = true;
+  call('apiSubmitReview', {
+    sessionId: review.id, reviewer: S.person, answers: review.answers,
+    comment: $('comment').value, confirmMissing: confirmMissing
+  }).then(function (res) {
+    if (res.needConfirm) {
+      return modal(res.message, '仍要簽認', '取消').then(function (ok) {
+        $('sign').disabled = false;
+        if (ok) submitReview(true);
+      });
+    }
+    renderDone('覆核簽認完成', '場次 ' + review.id + '\n指揮官 ' + S.person);
+  }).catch(function (e) { $('sign').disabled = false; modal('簽認失敗：\n' + (e.message || e)); });
+}
+
+call('apiBootstrap').then(function (b) { B = b; renderHome(); })
+  .catch(function (e) { $('app').innerHTML = '<div class="card err">載入失敗：' + esc(e.message || e) + '</div>'; });
+</script>
+</body>
+</html>
